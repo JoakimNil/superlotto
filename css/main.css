@@ -9,13 +9,19 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.numbers>div {
+.numbers > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.numbers > div > div {
   display: flex;
   justify-content: center;
   align-items: center;
   width: 64px;
   height: 64px;
-  margin: 8px;
+  margin: 4px 8px 4px 8px;
   border-radius: 50%;
   background-color: #f44336;
   color: #fff;
@@ -24,7 +30,7 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.numbers>div:last-child {
+.numbers > div > div:nth-child(8) {
   background-color: #ffeb3b;
 }
 

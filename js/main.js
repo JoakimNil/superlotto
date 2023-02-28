@@ -100,9 +100,10 @@ const { createApp } = Vue
 const app = createApp({
   data() {
     return {
-      ticket_cost: 2,
-      winning_nums: ['', '', '', '', '', ''],
-      our_nums: ['', '', '', '', '', ''],
+      ticket_cost: 5,
+      winning_nums: ['', '', '', '', '', '', '', ''],
+      our_nums: ['', '', '', '', '', '', ''],
+      other_nums: ['', '', '', '', '', '', '', '', ''].map(() => ['', '', '', '', '', '', '']),
       state: 'init',
       confetti: new ConfettiGenerator(),
       last_check: {
@@ -112,18 +113,19 @@ const app = createApp({
       stats: {
         plays_per_second: 0,
         plays: 0,
-        _3_number_matches: 0,
         _4_number_matches: 0,
         _5_number_matches: 0,
+        _6_number_matches: 0,
+        _6_1_number_matches: 0,
         wins: 0,
         real_wins: 0,
         cost_per_second: 0,
         total_cost: 0,
         total_won: 0,
-        cost_to_won_ratio: 0,
+        profitt: 0,
         time_started: new Date(),
       },
-      base_pool: Array.from({length: 69}).map((_,i) => i+1)
+      base_pool: Array.from({length: 34}).map((_,i) => i+1)
     }
   },
   methods: {
@@ -133,51 +135,62 @@ const app = createApp({
         [array[i], array[j]] = [array[j], array[i]];
       }
     },
-    gen_nums() {
-      this.shuffle_arr(this.base_pool)
-      return [this.base_pool[0], this.base_pool[1], this.base_pool[2], this.base_pool[3], this.base_pool[4], Math.floor(Math.random() * 26) + 1]
+    gen_nums(include_bonus) {
+      this.shuffle_arr(this.base_pool);
+      return this.base_pool.slice(0, 7 + include_bonus);
     },
-    compare(a1, a2) {
-      let matches = 0
-      for (let i = 0; i < 5; i++) {
-        if (a1[i] === a2[i]) matches++
-      }
-      return {base: matches, power: a1[5] === a2[5]}
+    compare(winning_nums, our_nums) {
+      // Copy winning numbers so we don't modify them
+      const wins = [...winning_nums];
+      const bonus_num = wins.pop();
+      // Count number of times an element appears in both arrays
+      const matches = wins.filter(n => our_nums.includes(n)).length;
+      const bonus = our_nums.includes(bonus_num);
+      return {base: matches, power: bonus}
     },
     start() {
       this.pid = setInterval(() => {
         this.stats.plays++
         this.stats.total_cost += this.ticket_cost
         if (new Date() - this.last_check.t > 1000) {
-          this.last_check.t = new Date()
-          this.stats.plays_per_second = this.stats.plays - this.last_check.k
-          this.stats.cost_per_second = this.stats.plays_per_second * this.ticket_cost
-          this.last_check.k = this.stats.plays
-          this.stats.cost_to_won_ratio = this.get_ratio(this.stats.total_cost, this.stats.total_won)
+          this.last_check.t = new Date();
+          this.stats.plays_per_second = this.stats.plays - this.last_check.k;
+          this.stats.cost_per_second = this.stats.plays_per_second * this.ticket_cost;
+          this.last_check.k = this.stats.plays;
+          this.stats.profitt = this.get_ratio(this.stats.total_cost, this.stats.total_won);
         }
-        this.winning_nums = this.gen_nums()
-        this.our_nums = this.gen_nums()
+        this.winning_nums = this.gen_nums(true);
+        this.our_nums = this.gen_nums(false);
+        this.other_nums = this.other_nums.map(() => this.gen_nums(false));
         let m = this.compare(this.winning_nums, this.our_nums)
         switch (m.base) {
-          case 6:
+          case 7:
             this.stats.real_wins++
-            this.win()
-            return;
-          case 5: this.stats._5_number_matches++
-          case 4: this.stats._4_number_matches++
-          case 3: this.stats._3_number_matches++
+            this.pause()
+            break;
+          case 6:
+            if (m.power) {
+              this.stats._6_1_number_matches++
+            }
+            else {
+              this.stats._6_number_matches++
+            }
+            break;
+          case 5:
+            this.stats._5_number_matches++
+            break;
+          case 4:
+            this.stats._4_number_matches++
+            break;
         }
         this.stats.total_won += this.get_payout(m.base, m.power)
       })
       this.state = 'playing'
     },
-    win() {
-      this.stats.wins++
-      this.stats.total_won += this.get_payout(5, 1)
+    pause() {
       this.state = 'done'
-      this.our_nums = this.winning_nums
       this.confetti.start()
-      clearInterval(this.pid)
+      clearInterval(this.pid);
     },
     again() {
       this.confetti.stop()
@@ -186,51 +199,36 @@ const app = createApp({
     time_since(date) {
       const seconds = Math.floor((new Date() - date) / 1000);
       const intervals = [
-        { label: "year", seconds: 31536000 },
-        { label: "month", seconds: 2592000 },
-        { label: "day", seconds: 86400 },
-        { label: "hour", seconds: 3600 },
-        { label: "minute", seconds: 60 },
-        { label: "second", seconds: 1 },
+        { label: "år", seconds: 31536000 },
+        { label: "måneder", seconds: 2592000 },
+        { label: "dager", seconds: 86400 },
+        { label: "timer", seconds: 3600 },
+        { label: "minutter", seconds: 60 },
+        { label: "sekunder", seconds: 1 },
       ];
       for (const interval of intervals) {
         const count = Math.floor(seconds / interval.seconds);
         if (count >= 1) {
-          const label = count === 1 ? interval.label : `${interval.label}s`;
+          const label = count === 1 ? interval.label : `${interval.label}`;
           return `${count} ${label}`;
         }
       }
     },
-    simp_num(num) {
-      const abbreviations = [
-        { value: 1e24, label: " septillion" },
-        { value: 1e21, label: " sextillion" },
-        { value: 1e18, label: " quintillion" },
-        { value: 1e15, label: " quadrillion" },
-        { value: 1e12, label: " trillion" },
-        { value: 1e9, label: "b" },
-        { value: 1e6, label: "m" },
-        { value: 1e3, label: "k" },
-      ];
-      for (const abbreviation of abbreviations) {
-        if (num >= abbreviation.value) {
-          const simplified = Math.floor(num / abbreviation.value);
-          return `${simplified}${abbreviation.label}`;
-        }
-      }
-      return num.toString();
-    },
     get_payout(n_matches, powerball_matched) {
-      const payouts = [0, 0, 0, 4, 100, 1000000, 4, 4, 7, 100, 50000, 141000000]
-      return payouts[powerball_matched ? n_matches + 6 : n_matches]
+      if (n_matches < 4) return 0;
+      if (n_matches === 4) return 50;
+      if (n_matches === 5) return 100;
+      if (n_matches === 6) {
+        if (!powerball_matched) return 4000;
+        return 90000;
+      }
+      if (n_matches === 7) return 7000000;
     },
     money(n) {
-      return n + ' dollars'
+      return n + ' kroner'
     },
-    get_ratio(n1, n2) {
-      const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b))
-      const divisor = gcd(n1, n2)
-      return `${this.simp_num(n1 / divisor)} to ${this.simp_num(n2 / divisor)}`
+    get_ratio(kostnad, gevinst) {
+      return `${Math.round(100 * gevinst / kostnad)} per 100 kroner`
     },    
   }
 }).mount('#app')
